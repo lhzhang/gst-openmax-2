@@ -154,6 +154,14 @@ imp_new (const gchar * name)
     imp->sym_table.deinit = dlsym (handle, "OMX_Deinit");
     imp->sym_table.get_handle = dlsym (handle, "OMX_GetHandle");
     imp->sym_table.free_handle = dlsym (handle, "OMX_FreeHandle");
+#ifdef ANDROID
+    if (imp->sym_table.get_handle = NULL) {
+      imp->sym_table.init = dlsym (handle, "PV_MasterOMX_Init");
+      imp->sym_table.deinit = dlsym (handle, "PV_MasterOMX_Deinit");
+      imp->sym_table.get_handle = dlsym (handle, "PV_MasterOMX_GetHandle");
+      imp->sym_table.free_handle = dlsym (handle, "PV_MasterOMX_FreeHandle");
+    }
+#endif
   }
 
   return imp;
@@ -256,6 +264,7 @@ g_omx_core_new (void *object)
   core->port_sem = g_sem_new ();
 
   core->omx_state = OMX_StateInvalid;
+  core->settings_changed = FALSE;
 
   return core;
 }
@@ -846,10 +855,14 @@ EventHandler (OMX_HANDLETYPE omx_handle,
     case OMX_EventPortSettingsChanged:
     {
       GST_DEBUG_OBJECT (core->object, "OMX_EventPortSettingsChanged");
+#ifdef ANDROID
+      core->settings_changed = TRUE;
+#else
                 /** @todo only on the relevant port. */
       if (core->settings_changed_cb) {
         core->settings_changed_cb (core);
       }
+#endif
       break;
     }
     case OMX_EventError:

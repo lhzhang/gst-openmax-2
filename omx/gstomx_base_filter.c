@@ -364,11 +364,18 @@ output_loop (gpointer data)
 
         caps = gst_pad_get_negotiated_caps (self->srcpad);
 
+#ifdef ANDROID
+        if (!caps || gomx->settings_changed) {
+#else
         if (!caps) {
+#endif
                     /** @todo We shouldn't be doing this. */
           GST_WARNING_OBJECT (self, "faking settings changed notification");
           if (gomx->settings_changed_cb)
             gomx->settings_changed_cb (gomx);
+#ifdef ANDROID
+          gomx->settings_changed = FALSE;
+#endif
         } else {
           GST_LOG_OBJECT (self, "caps already fixed: %" GST_PTR_FORMAT, caps);
           gst_caps_unref (caps);
@@ -543,6 +550,7 @@ pad_chain (GstPad * pad, GstBuffer * buf)
 
     if (gomx->omx_state == OMX_StateIdle) {
       self->ready = TRUE;
+      GST_INFO_OBJECT (self, "start srcpad task");
       gst_pad_start_task (self->srcpad, output_loop, self->srcpad);
     }
 
@@ -551,6 +559,16 @@ pad_chain (GstPad * pad, GstBuffer * buf)
     if (gomx->omx_state != OMX_StateIdle)
       goto out_flushing;
   }
+
+#ifdef ANDROID
+  if (gomx->settings_changed) {
+    GST_DEBUG_OBJECT (self, "settings changed called from streaming thread... Android");
+    if (gomx->settings_changed_cb)
+      gomx->settings_changed_cb (gomx);
+
+    gomx->settings_changed = FALSE;
+  }
+#endif
 
   in_port = self->in_port;
 
@@ -643,6 +661,10 @@ pad_chain (GstPad * pad, GstBuffer * buf)
         }
 
         buffer_offset += omx_buffer->nFilledLen;
+#ifdef ANDROID
+        omx_buffer->nFlags |= OMX_BUFFERFLAG_ENDOFFRAME;
+        log_buffer (self, omx_buffer);
+#endif
 
         GST_LOG_OBJECT (self, "release_buffer");
                 /** @todo untaint buffer */
@@ -756,7 +778,10 @@ pad_event (GstPad * pad, GstEvent * event)
       g_omx_core_flush_stop (gomx);
 
       if (self->ready)
+      {
+        GST_INFO_OBJECT (self, "start srcpad task");
         gst_pad_start_task (self->srcpad, output_loop, self->srcpad);
+      }
 
       ret = TRUE;
       break;
@@ -795,6 +820,7 @@ activate_push (GstPad * pad, gboolean active)
         g_omx_port_resume (self->in_port);
         g_omx_port_resume (self->out_port);
 
+        GST_INFO_OBJECT (self, "start srcpad task");
         result = gst_pad_start_task (pad, output_loop, pad);
       }
     }

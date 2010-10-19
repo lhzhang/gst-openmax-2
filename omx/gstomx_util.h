@@ -86,6 +86,7 @@ struct GOmxCore
   GSem *port_sem;
 
   GOmxCb settings_changed_cb;
+  gboolean settings_changed;
   GOmxImp *imp;
 
   gboolean done;

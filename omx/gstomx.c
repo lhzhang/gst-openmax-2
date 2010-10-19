@@ -242,14 +242,14 @@ plugin_init (GstPlugin * plugin)
     GType type;
     gint rank;
 
-    GST_DEBUG ("element_name=%s, element=%" GST_PTR_FORMAT, element_name,
-        element);
-
     parent_type_name = gst_structure_get_string (element, "parent-type");
     type_name = gst_structure_get_string (element, "type");
     component_name = gst_structure_get_string (element, "component-name");
     component_role = gst_structure_get_string (element, "component-role");
     library_name = gst_structure_get_string (element, "library-name");
+
+    GST_DEBUG ("element_name=%s, type=%s, component=%s, lib=%s", element_name,
+        type_name, component_name, library_name);
 
     if (!type_name || !component_name || !library_name) {
       g_warning ("malformed config file: missing required fields for %s",
